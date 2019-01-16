@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.8)
 
 project(mkhot C CXX)
 
+set(CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_STATIC_LIBRARY_SUFFIX})
+
+set(Boost_USE_STATIC_LIBS ON)
 find_package(Boost 1.58.0
     COMPONENTS
         filesystem program_options system thread
