@@ -10,6 +10,7 @@
 
 #include <chrono>
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -18,45 +19,123 @@ using namespace std::chrono_literals;
 
 using namespace std;
 
+#include <fcntl.h>
 #include <libgen.h>
+#include <unistd.h>
 
-#include "boost/thread/barrier.hpp"
 #include "boost/filesystem.hpp"
 #include "boost/program_options.hpp"
 
 namespace fs = boost::filesystem;
 namespace po = boost::program_options;
 
+enum class busymode
+{
+    none = 0,
+    wait,
+    io
+};
+
+static string to_string(busymode m)
+{
+    switch (m)
+    {
+    case busymode::none:
+        return "none";
+        break;
+    case busymode::wait:
+        return "wait";
+        break;
+    case busymode::io:
+        return "io";
+        break;
+    }
+}
+
 struct options
 {
     uint32_t tpc;      // Threads per core.
     uint16_t hwthread; // Hardware threads.
+    busymode mode;     // The way we'll burn CPU.
 };
 
-void load(size_t n, options opt, boost::barrier &b)
+/**
+ * @brief A good old-fashioned spin loop.
+ *
+ * @param n     The thread number, ignored.
+ * @param opt   Options, ignored.
+ */
+void busywait(size_t n, const options opt)
 {
-    // Sync on the passed-in barrier before doing any busy-waiting.
-    b.wait();
-
     while (true)
     {
     }
 }
 
-void generate(options &opt)
+/**
+ * @brief Perform some reads to generate system calls.
+ *
+ * @param n     The thread number, ignored.
+ * @param opt   Options, ignored.
+ */
+void busyio(size_t n, const options opt)
+{
+    string infile{"/dev/zero"};
+    int f = open(infile.c_str(), O_RDONLY);
+    if (f == -1)
+    {
+        throw runtime_error("Failed to open input file");
+    }
+
+    while (true)
+    {
+        char c[4096];
+        ssize_t err = read(f, &c, sizeof(c));
+        if (err == -1)
+        {
+            throw runtime_error("Failed to read input file");
+        }
+    }
+    close(f);
+}
+
+/**
+ * @brief A load-generator thread, calls a specific load type.
+ *
+ * @param n     The thread number, ignored (but passed along).
+ * @param opt   Options, ignored (but passed along).
+ */
+void load(size_t n, const options opt)
+{
+    // Choose. Your. Pain.
+    switch (opt.mode)
+    {
+    case busymode::io:
+        busyio(n, opt);
+        break;
+    default:
+        busywait(n, opt);
+        break;
+    }
+}
+
+/**
+ * @brief Start load-generator threads and wait forever.
+ *
+ * @param opt Options.
+ */
+void generate(const options &opt)
 {
     size_t nthread = opt.hwthread * opt.tpc;
-    clog << "Assuming " << opt.hwthread << " hardware thread(s), starting " << nthread << " load-generator thread(s)" << endl;
+    clog << "Starting " << nthread << " load-generator thread(s), mode '" << to_string(opt.mode) << "'" << endl;
 
     vector<thread> thr;
-    boost::barrier b(nthread + 1);
 
     for (size_t n = 0; n < nthread; n++)
     {
-        thr.emplace_back(load, n, opt, std::ref(b));
+        thr.emplace_back(load, n, opt);
     }
-    // Wait until all threads start.
-    b.wait();
+
     // These threads won't exit, so this will wait forever.
     for (auto &t : thr)
     {
@@ -69,6 +148,8 @@ int main(int argc, char *argv[])
     options opt{};
     // Rely on std::thread to fill the default number of hardware threads.
     opt.hwthread = std::thread::hardware_concurrency();
+    // Default is a busy-wait loop.
+    bool iowait = false;
 
     fs::path prog{fs::basename(getprogname())};
     string desc = "Usage: " + prog.native() + " [OPTIONS]\nWhere OPTIONS can be";
@@ -77,6 +158,7 @@ int main(int argc, char *argv[])
         ("help", "Display this message")                                                                                                      //
         ("threads-per-core,t", po::value<uint32_t>(&opt.tpc)->default_value(1), "Threads per hardware core/thread")                           //
         ("override-hw-threads,h", po::value<uint16_t>(&opt.hwthread)->default_value(opt.hwthread), "Override the number of hardware threads") //
+        ("io-load,i", po::bool_switch(&iowait), "Perform I/O in the load threads")                                                            //
         ;
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, od), vm);
@@ -87,6 +169,11 @@ int main(int argc, char *argv[])
         clog << od << "\n";
         return 1;
     }
+
+    if (iowait)
+        opt.mode = busymode::io;
+    else
+        opt.mode = busymode::wait;
 
     generate(opt);
 
