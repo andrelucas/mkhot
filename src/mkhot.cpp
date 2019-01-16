@@ -19,6 +19,8 @@ using namespace std::chrono_literals;
 
 using namespace std;
 
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -126,16 +128,18 @@ int main(int argc, char *argv[]) {
     opt.hwthread = std::thread::hardware_concurrency();
     // Default is a busy-wait loop.
     bool iowait = false;
+    bool nofork = false;
 
     fs::path prog{fs::basename(argv[0])};
     string desc = "Usage: " + prog.native() + " [OPTIONS]\nWhere OPTIONS can be";
     po::options_description od{desc};
-    od.add_options()                                                                                                 //
-        ("help", "Display this message")                                                                             //
-        ("threads-per-core,t", po::value<uint32_t>(&opt.tpc)->default_value(1), "Threads per hardware core/thread")  //
-        ("override-hw-threads,h", po::value<uint16_t>(&opt.hwthread)->default_value(opt.hwthread),
-         "Override the number of hardware threads")                                 //
+    od.add_options()                                                                //
+        ("help", "Display this message")                                            //
         ("io-load,i", po::bool_switch(&iowait), "Perform I/O in the load threads")  //
+        ("no-fork,n", po::bool_switch(&nofork), "Do not fork() on startup")         //
+        ("override-hw-threads,h", po::value<uint16_t>(&opt.hwthread)->default_value(opt.hwthread),
+         "Override the number of hardware threads")                                                                  //
+        ("threads-per-core,t", po::value<uint32_t>(&opt.tpc)->default_value(1), "Threads per hardware core/thread")  //
         ;
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, od), vm);
@@ -151,6 +155,17 @@ int main(int argc, char *argv[]) {
     else
         opt.mode = busymode::wait;
 
+    if (!nofork) {
+        // Fork so we're not PID 1. This way, we get signals such as ctrl-c even
+        // when running in a Docker container.
+        int status;
+        if (fork()) {
+            wait(&status);
+            return status;
+        }
+    }
+
+    // If we forked, this is now child-process only.
     generate(opt);
 
     return 0;
