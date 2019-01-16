@@ -2,11 +2,15 @@ cmake_minimum_required(VERSION 3.8)
 
 project(mkhot C CXX)
 
-find_package(Boost 1.65.1
+find_package(Boost 1.58.0
     COMPONENTS
         filesystem program_options system thread
     REQUIRED
 )
+
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+link_libraries(Threads::Threads)
 
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD 14)
