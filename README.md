@@ -34,9 +34,9 @@ Where OPTIONS can be:
 
 ```
 
-The `-i` option specifies an I/O operation should be run in the busy threads
-either. This is simply a read of `/dev/zero`; we don't care about _actual_ I/O,
-we just want to generate system call.s
+The `-i` option specifies an I/O operation should be run in the busy threads,
+again in a tight loop. This is simply a read of `/dev/zero`; we don't care about
+_actual_ I/O, we just want to generate system calls.
 
 The `-h` and `-t` options act as multipliers for the number of threads started.
 `-h` is defaulted to the number of hardware threads detected, and `-t`
