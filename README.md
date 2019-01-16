@@ -10,20 +10,24 @@ otherwise affect running services.
 # Running
 
 ```sh
-$ docker run andrelucas/mkhot
+$ docker run -t andrelucas/mkhot
 Starting 4 load-generator thread(s), mode 'wait'
 ```
 
+The `-t` option allows the program to be stopped with CTRL-C. Without it, you'll
+have to stop with `docker stop`.
+
 With no options, `mkhot` will start one system thread per hardware thread (as
 reported via C++ `std::thread::hardware_concurrency()`) which will run a
-busy-wait loop. No special instructions, no contention, no system calls - just a spinning loop.
+busy-wait loop. No special instructions, no contention, no system calls - just a
+spinning loop.
 
 ## Options
 
 There are a few options:
 
 ```sh
-$ docker run -ti andrelucas/mkhot --help
+$ docker run andrelucas/mkhot --help
 Usage: mkhot [OPTIONS]
 Where OPTIONS can be:
   --help                                Display this message
