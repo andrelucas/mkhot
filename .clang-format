@@ -1,0 +1,17 @@
+---
+BasedOnStyle: Chromium
+ColumnLimit: 132
+IndentWidth: 4
+---
+Language: Cpp
+BinPackParameters: false
+DerivePointerAlignment: true
+PointerAlignment: Right
+SpacesInContainerLiterals: false
+SortIncludes: false
+ForEachMacros: [ 'RX_RBTREE_FOREACH', 'RX_RBTREE_FOREACH_SAFE',
+				 'RX_RBTREE_FOREACH_REVERSE', 'RX_RBTREE_FOREACH_REVERSE_SAFE',
+				 'RB_FOREACH', 'RB_FOREACH_SAFE',
+				 'RB_FOREACH_REVERSE', 'RB_FOREACH_REVERSE_SAFE',
+				 'rxdfs_queue_foreach',
+				 'TEST_GROUP']
